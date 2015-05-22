@@ -47,12 +47,20 @@ isPrime num gen = bigLoop 0 gen where
         | x == (num-1) = bigLoop (bigCount +1) g
         | otherwise = smallLoop (count +1) ((fastExponent x 2) `mod` num) g bigCount
     genRand bigCount g = let (start,newGen) = randomR (2,num-2) g
-                            in if ((fastMod start) ==1) || ((fastMod start) == num-1)
+                            in if ((fastMod start d num) ==1) || ((fastMod start d num) == num-1)
                             then bigLoop (bigCount + 1) newGen
-                            else smallLoop 0 ((fastExponent (fastMod start) 2) `mod` num) newGen bigCount
-    fastMod x = (fastExponent x d) `mod` num
+                            else smallLoop 0 (fastMod (fastMod start d num) 2 num) newGen bigCount
+    --fastMod x = (fastExponent x d) `mod` num
     k= 40
 
+fastMod :: Integer -> Integer -> Integer -> Integer
+fastMod base exp modulus = fastModHelper 1 (base `mod` modulus) exp where
+    fastModHelper res b e
+        | e <= 0 = res
+        | otherwise = if ((e `mod` 2) == 1)
+                        then fastModHelper ((res*b) `mod` modulus) ((b * b) `mod` modulus) (e `shiftR` 1)
+                        else
+                            fastModHelper res ((b * b) `mod` modulus) (e `shiftR` 1)
 
 main = do
     g <- getStdGen
