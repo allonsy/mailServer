@@ -1,5 +1,6 @@
 {- Alec Snyder Mail Server 
-- Key generator library
+- Key generator library and executable generates keys and writes them to a file
+- With help from wikipedia for algorithms that run in a reasonable amount of time (aka, my lifetime)
 -}
 
 module Main where
@@ -8,8 +9,30 @@ import Encrypt
 import System.Random
 import Data.Bits
 
-genAsymKeys :: IO (Integer, Integer)
-genAsymKeys = return (1,2)
+main :: IO ()
+main = do
+    g <- getStdGen
+    let (seed1,newGen1) = genLargeNum g
+    let (p1,newGen2) = retPrime seed1 newGen1
+    let (seed2, newGen3) = genLargeNum newGen2
+    let (p2,newGen4) = retPrime seed2 newGen3
+    let n = p1 * p2
+    let phi = (p1-1) * (p2-1)
+    let (e,newGen5) = genCoprime 65537 phi newGen4
+    let d = multInverse e phi
+    return ((d,n),(e,n))
+    putStrLn "Generating keys, please enter your demographic information"
+    putStrLn "What is your name? "
+    name <- getLine
+    putStrLn "What is your email? "
+    email <- getLine
+    let priv = (name, email, n, d)
+    let pub = (name, email, n, e)
+    putStrLn $ "Writing public key to " ++ name ++ ".pub"
+    writeFile (name ++ ".pub") (show pub)
+    putStrLn $ "Writing private key to " ++ name ++ ".priv"
+    writeFile (name ++ ".priv") (show priv)
+    
 
 genByte :: StdGen -> (Integer, StdGen)
 genByte gen = randomR (0,255) gen
@@ -22,6 +45,12 @@ genLargeNum gen = genLargeHelper 0 0 gen where
     format n
         | even n = n+1
         | otherwise = n
+
+genCoprime :: Integer -> Integer -> StdGen -> (Integer, StdGen)
+genCoprime seed target gen
+    | target `mod` candidate /= 0 = (candidate,newGen)
+    | otherwise = genCoprime (candidate+2) target newGen where
+        (candidate, newGen) = retPrime seed gen
 
 retPrime :: Integer -> StdGen -> (Integer, StdGen)
 retPrime p gen
@@ -53,17 +82,16 @@ isPrime num gen = bigLoop 0 gen where
     --fastMod x = (fastExponent x d) `mod` num
     k= 40
 
-fastMod :: Integer -> Integer -> Integer -> Integer
-fastMod base exp modulus = fastModHelper 1 (base `mod` modulus) exp where
-    fastModHelper res b e
-        | e <= 0 = res
-        | otherwise = if ((e `mod` 2) == 1)
-                        then fastModHelper ((res*b) `mod` modulus) ((b * b) `mod` modulus) (e `shiftR` 1)
-                        else
-                            fastModHelper res ((b * b) `mod` modulus) (e `shiftR` 1)
+--a is the e value
+-- b in phi value
+multInverse :: Integer -> Integer -> Integer
+multInverse a b = inverseHelper 0 b 1 a where
+    inverseHelper t r newt newr
+        | newr == 0 = final t
+        | otherwise = inverseHelper newt newr (t - (r `quot` newr) * newt) (r - (r `quot` newr) * newr)
+    final t
+        | t < 0 = b + t
+        | otherwise = t 
 
-main = do
-    g <- getStdGen
-    let (b,newG) = genLargeNum g
-    let d = retPrime 951217 newG
-    putStrLn $ show d
+showKey :: Key -> String
+showKey (a,b,c,d) = "(" ++ a ++ "," ++ b ++ "," ++ (show c) ++ "," ++ (show d) ++ ")"
