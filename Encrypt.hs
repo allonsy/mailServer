@@ -3,7 +3,7 @@
 - given a key (can be read in from a file, encrypts the message with rsa and can decrypt it with the opposite key
 -}
 
-module Encrypt (fastExponent,Key(Key),Person(Person),rsaencrypt,rsadecrypt,fastMod, readKey) where
+module Encrypt (fastExponent,Key(Key),Person(Person),EncryptedEmail(EncryptedEmail),rsaencrypt,rsadecrypt,fastMod, readKey) where
 
 import Data.ByteString.Char8
 import Crypto.Cipher.AES
