@@ -26,8 +26,8 @@ main = do
     name <- getLine
     putStrLn "What is your email? "
     email <- getLine
-    let priv = (name, email, n, d)
-    let pub = (name, email, n, e)
+    let priv = Key (Person name email) n d
+    let pub = Key (Person name email) n e
     putStrLn $ "Writing public key to " ++ name ++ ".pub"
     writeFile (name ++ ".pub") (show pub)
     putStrLn $ "Writing private key to " ++ name ++ ".priv"
@@ -93,5 +93,3 @@ multInverse a b = inverseHelper 0 b 1 a where
         | t < 0 = b + t
         | otherwise = t 
 
-showKey :: Key -> String
-showKey (a,b,c,d) = "(" ++ a ++ "," ++ b ++ "," ++ (show c) ++ "," ++ (show d) ++ ")"
