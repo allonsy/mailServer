@@ -8,6 +8,9 @@ import System.IO
 import Data.Map
 import Control.Exception
 import System.Directory
+import Control.Concurrent.STM.TVar
+import Control.Concurrent
+import Network
 
 data ServerDB = ServerDB { serverName :: String
                          , hname :: String
@@ -36,7 +39,7 @@ initServer = do
     let newDB = ServerDB name (hname oldDB) priv pub (users oldDB)
     return newDB
 
-interMenu :: ServerDB -> IO ()
+interMenu :: TVar ServerDB -> IO ()
 interMenu db = do
     putStrLn "What would you like to do?"
     putStrLn "enter 1 to add a user"
@@ -52,8 +55,8 @@ interMenu db = do
         4 -> quit db
         _ -> putStrLn "Choice not recognized" >> interMenu db
 
-addUser :: ServerDB -> IO ()
-addUser db = do
+addUser :: TVar ServerDB -> IO ()
+addUser var = do
     putStrLn "What is the username of the new User?"
     name <- getLine
     putStrLn $ "What is the filename for the public key of user: " ++ name
@@ -61,30 +64,36 @@ addUser db = do
     sanity <- doesFileExist fname
     if sanity
         then do
-            pub <- readKey fname
-            let newDB = insert name (UserEntry name pub []) (users db)
+            atomically do
+                db <- readTVar var
+                pub <- readKey fname
+                let newDB = insert name (UserEntry name pub []) (users db)
+                writeTVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
             putStrLn "User added"
-            interMenu  $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
+            interMenu var
         else do
             putStrLn "File name doesn't exist"
-            addUser db
+            addUser var
 
-delUser :: ServerDB -> IO ()
-delUser db = do
+delUser :: TVar ServerDB -> IO ()
+delUser var = do
     putStrLn "What is the username of the User?"
     name <- getLine
     putStrLn "Are you sure? (y/n) "
     sanity <- getLine
     if (sanity == "y")
         then do
-            let newDB = delete name (users db)
+            atomically $ do
+                db <- readTVar var
+                let newDB = delete name (users db)
+                writeTVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
             putStrLn "User deleted"
-            interMenu  $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
-        else interMenu db
+            interMenu var
+        else interMenu var
 
 modUser :: ServerDB -> IO ()
-modUser db = do
-    putStrLn "What is the username of the User?"
+modUser var = do
+    putStrLn "What is the username of the target User?"
     name <- getLine
     putStrLn "What is the new username for the user?"
     newName <- getLine
@@ -94,19 +103,25 @@ modUser db = do
     if sanity
         then do
             pub <- readKey fname
-            let newDB = adjust (\_ -> UserEntry name pub []) name (users db)
+            atomically $ do
+                db <- readTVar var
+                let newDB = adjust (\_ -> UserEntry name pub []) name (users db)
+                writeTVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
             putStrLn "user modified"
-            interMenu  $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
+            interMenu var
         else do
             putStrLn "File name doesn't exist"
-            modUser db
+            modUser var
 
-quit :: ServerDB -> IO ()
-quit db = do
+
+writeDB :: TVar ServerDB -> IO ()
+writeDB var = do
+    db <- atomically $ readTVar var
     writeFile "server.db" (show db)
     return ()
 
 main :: IO ()
 main = do
     db <- initServer
-    interMenu db
+    serv <- atomically $ newTVar db 
+    interMenu serv
