@@ -3,7 +3,7 @@
 - given a key (can be read in from a file, encrypts the message with rsa and can decrypt it with the opposite key
 -}
 
-module Encrypt (fastExponent,Key(Key),Person(Person),EncryptedEmail(EncryptedEmail),rsaencrypt,rsadecrypt,fastMod, readKey) where
+module Encrypt (fastExponent,Key(Key),Person(Person),EncryptedEmail(EncryptedEmail),idEnc,encHdr,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey) where
 
 import Data.ByteString.Char8
 import Crypto.Cipher.AES
@@ -139,3 +139,15 @@ verifySig new orig key = newHash == oldHash where
     newHash = hash (pack new)
     dec = rsadecrypt key orig
     oldHash = integerToKey dec
+
+encryptEmail :: Mail -> Key -> StdGen -> (EncryptedEmail, StdGen)
+encryptEmail m pub gen = (EncryptedEmail 0 header cont (sig m), retGen) where
+    (header, newGen) = encryptMessage (show (hdr m)) pub gen
+    (cont, retGen) = encryptMessage (show (content m)) pub newGen
+
+decryptEmail :: EncryptedEmail -> Key -> Key -> (Mail, Bool)
+decryptEmail m pub priv = (retMail, verfy) where
+    header = read $ decryptMessage (encHdr m) priv
+    cont = read $ decryptMessage (encContents m) priv
+    retMail = Mail (idEnc m) header cont (encSig m)
+    verfy = verifySig ((show header) ++ (show cont)) (encSig m) pub
