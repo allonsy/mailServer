@@ -132,6 +132,7 @@ performHandshake var hand = do
     let decKey = integerToKey $ rsadecrypt (privKey db) keyInt
     return decKey
 
+{- TODO: ADD A WAY TO GRACEFULLY EXIT -}
 sendMailClient :: MVar ServerDB -> Handle -> IO ()
 sendMailClient var hand = do
     key <- performHandshake var hand
@@ -140,6 +141,7 @@ sendMailClient var hand = do
             use <- recvFromClient k han
             encMailMess <- recvFromClient k han
             storeMail (read encMailMess) v use
+            loopSend v k han
 
 clientAuth :: MVar ServerDB -> Handle -> IO ()
 clientAuth var hand = do
@@ -158,15 +160,15 @@ clientAuth var hand = do
             if ((read ret) == sending)
                 then do
                     sendToClient "OK" key hand
-                    loopRecv var key user hand newGen
+                    loopRecv var key user hand key newGen
                 else do
                     hClose hand
                     return ()
     where
-        loopRecv v k u h g = do
+        loopRecv v k u h ke g = do
             mess <- recvFromClient k h
-            newG <- parseMessage mess v u h g
-            loopRecv v k u h newG
+            newG <- parseMessage mess v u h ke g
+            loopRecv v k u h ke newG
                     
 
 sendToClient :: String -> ByteString -> Handle -> IO ()
@@ -200,14 +202,25 @@ recvFromClient key hand = do
                     let dec = decryptECB (initAES key) tot
                     return $ unpack dec
 
-parseMessage :: String -> MVar ServerDB -> UserEntry -> Handle -> StdGen -> IO StdGen
-parseMessage mess var use hand gen = return gen where
+parseMessage :: String -> MVar ServerDB -> UserEntry -> Handle -> ByteString -> StdGen -> IO StdGen
+parseMessage mess var use hand key gen = return gen where
     comm = fst $ splitCommand mess
     cont = snd $ splitCommand mess
     runner
         | comm == "Send" = do
-            storeMail (read cont) var (username use)
-
+            storeMail (read (snd (splitCommand cont))) var (fst (splitCommand cont))
+            sendToClient "OK" key hand
+            return gen
+        | comm == "Upd" = do
+            num <- getBiggestId var use
+            sendToClient (show num) key hand
+            return gen
+        | comm == "Retr" = do
+            let num = read cont
+            mailList <- getMail var use num
+            sendToClient (show mailList) key hand
+            return gen
+            
 
 storeMail :: EncryptedEmail -> MVar ServerDB -> String -> IO ()
 storeMail m var use = do
@@ -255,7 +268,7 @@ main = withSocketsDo $ do
     serv <- newMVar db
     
     sock <- listenOn $ Service "6667"
-    
+    _ <- forkIO $ writeLoop serv
     _ <- forkIO $ acceptLoop serv sock
     
     interMenu serv
@@ -276,3 +289,9 @@ handleClient var hand = do
         "SendAuth" -> sendMailClient var hand
         "ClientAuth" -> clientAuth var hand
         _ -> return ()
+
+writeLoop :: MVar ServerDB -> IO ()
+writeLoop var = do
+    threadDelay 60000000
+    writeDB var
+    writeLoop var
