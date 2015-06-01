@@ -5,7 +5,7 @@ module Main where
 
 import Encrypt
 import System.IO
-import Data.Map.Strict
+import Data.Map.Strict hiding (map)
 import Control.Exception
 import System.Directory
 import Control.Concurrent.MVar
@@ -13,7 +13,8 @@ import Control.Concurrent
 import Network
 import System.Random
 import Crypto.Cipher.AES
-import Data.ByteString.Char8 hiding (putStrLn, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine)
+import Data.Char
+import Data.ByteString.Char8 hiding (putStrLn, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine,map)
 
 data ServerDB = ServerDB { serverName :: String
                          , hname :: String
