@@ -159,7 +159,7 @@ sendToClient mess key hand= do
     let len = Data.ByteString.Char8.length enc
     hPutStrLn hand $ show len
     hPutStrLn hand $ show enc
-    
+
 recvFromClient :: ByteString -> Handle -> IO String
 recvFromClient key hand = do
     putStrLn "In recv"
@@ -167,13 +167,15 @@ recvFromClient key hand = do
     let len = read lenStr
     putStrLn $ "received of length " ++ (show len)
     mess <- hGetLine hand
-    let encMess = pack mess
+    let encMess = read mess :: ByteString
     if (Data.ByteString.Char8.length encMess < len)
         then do
             putStrLn "overflow!"
             readAgain len encMess hand
         else do
-            putStrLn $ "Decrypting! " ++ (show (unpack encMess))
+            putStrLn $ "Decrypting! " ++ (unpack encMess)
+            mapM_ (\x -> putStrLn ("[" ++ (show x) ++ "]")) (unpack encMess)
+            putStrLn $ show $ Prelude.length (unpack encMess)
             let dec = decryptECB (initAES key) encMess
             --let temp = unpad (unpack dec)
             putStrLn "bracket"

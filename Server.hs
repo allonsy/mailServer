@@ -249,7 +249,7 @@ acceptLoop var sock = do
     (hand,_,_) <- accept sock
     hSetNewlineMode hand (NewlineMode CRLF CRLF)
     hSetBuffering hand LineBuffering
-    _ <- forkFinally (handleClient var hand) (\_ -> hClose hand)
+    _ <- forkIO (handleClient var hand) --(\_ -> hClose hand)
     acceptLoop var sock
     
 
