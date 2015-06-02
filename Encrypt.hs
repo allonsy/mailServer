@@ -3,9 +3,9 @@
 - given a key (can be read in from a file, encrypts the message with rsa and can decrypt it with the opposite key
 -}
 
-module Encrypt (genAESKey,fastExponent,Key(Key),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey) where
+module Encrypt (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger) where
 
-import Data.ByteString.Char8
+import Data.ByteString.Char8 hiding (putStrLn, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine,map)
 import Crypto.Cipher.AES
 import Data.Bits
 import Data.List.Split
@@ -31,8 +31,8 @@ data Mail = Mail {idNum :: Integer
 
 data MailHeader = MailHeader { to :: String
                              , from :: Person
-                             , cc :: [Person]
-                             , bcc :: Person
+                             , cc :: [String]
+                             , bcc :: [String]
                              , subj :: String
                              , timestamp :: UTCTime }
     deriving(Show, Read)
@@ -151,3 +151,44 @@ decryptEmail m pub priv = (retMail, verfy) where
     cont = read $ decryptMessage (encContents m) priv
     retMail = Mail (idEnc m) header cont (encSig m)
     verfy = verifySig ((show header) ++ (show cont)) (encSig m) pub
+
+sendToClient :: String -> ByteString -> Handle -> IO ()
+sendToClient mess key hand= do
+    let k = initAES key
+    let enc = encryptECB k (pad mess)
+    let len = Data.ByteString.Char8.length enc
+    hPutStrLn hand $ show len
+    hPutStrLn hand $ show enc
+    
+recvFromClient :: ByteString -> Handle -> IO String
+recvFromClient key hand = do
+    putStrLn "In recv"
+    lenStr <- hGetLine hand
+    let len = read lenStr
+    putStrLn $ "received of length " ++ (show len)
+    mess <- hGetLine hand
+    let encMess = pack mess
+    if (Data.ByteString.Char8.length encMess < len)
+        then do
+            putStrLn "overflow!"
+            readAgain len encMess hand
+        else do
+            putStrLn $ "Decrypting! " ++ (show (unpack encMess))
+            let dec = decryptECB (initAES key) encMess
+            --let temp = unpad (unpack dec)
+            putStrLn "bracket"
+            putStrLn $ show dec
+            putStrLn "passed"
+            putStrLn "passed"
+            putStrLn "passed"
+            return $ unpad (unpack dec)
+    where
+        readAgain l enc han = do
+            more <- hGetLine han
+            let tot = append enc (pack more)
+            if (Data.ByteString.Char8.length tot < l)
+                then do
+                    readAgain l tot han
+                else do
+                    let dec = decryptECB (initAES key) tot
+                    return $ unpad (unpack dec)

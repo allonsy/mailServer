@@ -148,11 +148,13 @@ clientAuth :: MVar ServerDB -> Handle -> IO ()
 clientAuth var hand = do
     key <- performHandshake var hand
     useStr <- recvFromClient key hand
+    putStrLn $ "received user " ++ useStr
     db <- readMVar var
     let use = Data.Map.Strict.lookup useStr (users db)
     case use of
-        Nothing -> return ()
+        Nothing -> putStrLn "No Such User" >> return ()
         Just user -> do
+            putStrLn "Received user"
             g <- getStdGen
             let (r,newGen) = random g :: (Integer, StdGen)
             let sending = rsaencrypt (pkey user) r
@@ -170,38 +172,6 @@ clientAuth var hand = do
             mess <- recvFromClient k h
             newG <- parseMessage mess v u h ke g
             loopRecv v k u h ke newG
-                    
-
-sendToClient :: String -> ByteString -> Handle -> IO ()
-sendToClient mess key hand= do
-    let k = initAES key
-    let enc = encryptECB k (pack mess)
-    let len = Data.ByteString.Char8.length enc
-    hPutStrLn hand $ show len
-    hPutStrLn hand $ show enc
-    
-recvFromClient :: ByteString -> Handle -> IO String
-recvFromClient key hand = do
-    lenStr <- hGetLine hand
-    let len = read lenStr
-    mess <- hGetLine hand
-    let encMess = pack mess
-    if (Data.ByteString.Char8.length encMess < len)
-        then do
-            readAgain len encMess hand
-        else do
-            let dec = decryptECB (initAES key) encMess
-            return $ unpack dec
-    where
-        readAgain l enc han = do
-            more <- hGetLine han
-            let tot = append enc (pack more)
-            if (Data.ByteString.Char8.length tot < l)
-                then do
-                    readAgain l tot han
-                else do
-                    let dec = decryptECB (initAES key) tot
-                    return $ unpack dec
 
 parseMessage :: String -> MVar ServerDB -> UserEntry -> Handle -> ByteString -> StdGen -> IO StdGen
 parseMessage mess var use hand key gen = return gen where
