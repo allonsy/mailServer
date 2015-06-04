@@ -157,6 +157,7 @@ updateEmail db hand= do
     sendToClient "Upd" shareKey hand
     intStr <- recvFromClient shareKey hand
     let top = read intStr
+    putStrLn $ "Received email top of " ++ (show top)
     if(top >= biggestMail db)
         then do
             sendToClient ("Retr " ++ (show (biggestMail db))) shareKey hand
