@@ -52,6 +52,7 @@ printPerson p = name (p) ++ " at " ++ addr (p)
 printMail :: Mail -> IO ()
 printMail ma= do
     let m = hdr ma
+    putStrLn ""
     putStrLn $ "From: " ++ (printPerson (from m))
     putStrLn $ "To: " ++ (to m)
     putStrLn $ "CC: " ++ (show (cc m))
@@ -60,6 +61,7 @@ printMail ma= do
     putStrLn $ "Begin Message: "
     putStrLn $ content ma
     putStrLn $ "End Message"
+    putStrLn ""
 
 printMailThreads :: [MailThread] -> IO ()
 printMailThreads db = mapM_ printOneThread db >> putStrLn "" where
@@ -69,9 +71,9 @@ printMailThreads db = mapM_ printOneThread db >> putStrLn "" where
     printOneEmail (b, m) = do
         if(b)
             then do
-                putStrLn $ "\t-" ++ "***" ++ (show (idNum m)) ++ (show (timestamp (hdr m))) ++ (show (name (from (hdr m)))) ++ (show (subj (hdr m))) ++ "***"
+                putStrLn $ "\t-" ++ "***" ++ "["++ (show (idNum m)) ++ "] " ++ (show (timestamp (hdr m))) ++ " from: " ++ (show (name (from (hdr m)))) ++ " subj: " ++ (show (subj (hdr m))) ++ "***"
             else do
-                putStrLn $ "\t-" ++ (show (idNum m)) ++ (show (timestamp (hdr m))) ++ (show (name (from (hdr m)))) ++ (show (subj (hdr m)))
+                putStrLn $ "\t-" ++ "["++ (show (idNum m)) ++ "] " ++ (show (timestamp (hdr m))) ++ " from: " ++ (show (name (from (hdr m)))) ++ " subj: " ++ (show (subj (hdr m)))
 
 initDB :: StdGen -> IO (ClientDB, StdGen)
 initDB g = do
@@ -157,27 +159,26 @@ updateEmail db hand= do
     sendToClient "Upd" shareKey hand
     intStr <- recvFromClient shareKey hand
     let top = read intStr
-    putStrLn $ "Received email top of " ++ (show top)
-    if(top >= biggestMail db)
+    if(top > biggestMail db)
         then do
             sendToClient ("Retr " ++ (show (biggestMail db))) shareKey hand
             mails <- recvFromClient shareKey hand
-            let mailList = read mails
+            let mailList = read mails :: [EncryptedEmail]
             decMailMaybe <- mapM (decryptEmailClient db hand) mailList
             let decMail = map extractMaybe $ reverse $ filter (/= Nothing) decMailMaybe
             let newBigNum = idNum $ snd $ head decMail
-            return $ changeBigNum newBigNum (changeMail (decMail ++ (mail db)) db)
-        else return db
+            putStrLn $ "importing " ++ (show (top - (biggestMail db))) ++ " email(s)"
+            return $ changeBigNum top $ changeMail (decMail ++ (mail db)) db
+        else putStrLn "No New mail" >> return db
     where
         extractMaybe (Just c) = c
             
 
 decryptEmailClient :: ClientDB -> Handle -> EncryptedEmail -> IO (Maybe (Bool,Mail))
 decryptEmailClient db hand m = do
-    let decHdr = read $ decryptMessage (encHdr m) (pubKey db) :: MailHeader
+    let decHdr = read $ decryptMessage (encHdr m) (privKey db) :: MailHeader
     let sender = from decHdr
-    let use = break (=='@') $ addr sender
-    (newDB, k) <- getKey (fst use) db hand
+    (newDB, k) <- getKey (addr sender) db hand
     case k of
         Nothing -> decMessage
         Just key -> do
@@ -190,7 +191,7 @@ decryptEmailClient db hand m = do
                 return Nothing
     where
         decMessage = return $ Just $ (True, Mail (idEnc m) (read (decryptMessage (encHdr m) k)) ((read (decryptMessage (encContents m) k))) (encSig m))
-        k = pubKey db
+        k = privKey db
 
 getKey :: String -> ClientDB -> Handle -> IO (ClientDB,Maybe Key)
 getKey use db hand = do
@@ -291,6 +292,11 @@ main = withSocketsDo $ do
     
     runRepl db hand newGen
 
+showAllEmails :: ClientDB -> IO ()
+showAllEmails db = printMailThreads $ threads [] $ reverse $ mail db where
+    threads toBuild [] = toBuild
+    threads toBuild (x:xs) = threads (insertMessageThreads x toBuild) xs
+
 runRepl :: ClientDB -> Handle -> StdGen -> IO ()
 runRepl db hand g = do
     putStrLn "What would you like to do?"
@@ -303,12 +309,15 @@ runRepl db hand g = do
                     newDB <- updateEmail db hand
                     runRepl newDB hand g
         ":show" -> do 
-                    newDb <- showEmail db (snd (parseCommand (fst res)))
+                    newDb <- showEmail db (snd (parseCommand (resStr)))
                     runRepl newDb hand g
+        ":disp" -> do
+                    showAllEmails db
+                    runRepl db hand g
         ":send" -> do
                     newG <- sendEmail db hand g
                     runRepl db hand newG
-        ":q" -> return ()
+        ":q" -> writeDB "client.db" db
         _ -> do
             putStrLn "Command not found"
             runRepl db hand g

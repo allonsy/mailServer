@@ -150,7 +150,7 @@ decryptEmail m pub priv = (retMail, verfy) where
     header = read $ decryptMessage (encHdr m) priv
     cont = read $ decryptMessage (encContents m) priv
     retMail = Mail (idEnc m) header cont (encSig m)
-    verfy = verifySig ((show header) ++ (show cont)) (encSig m) pub
+    verfy = verifySig ((show header) ++ cont) (encSig m) pub
 
 sendToClient :: String -> ByteString -> Handle -> IO ()
 sendToClient mess key hand= do
