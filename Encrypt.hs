@@ -3,7 +3,7 @@
 - given a key (can be read in from a file, encrypts the message with rsa and can decrypt it with the opposite key
 -}
 
-module Encrypt (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger) where
+module Encrypt (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger, decryptMessage, decryptEmail, encryptEmail, verifySig) where
 
 import Data.ByteString.Char8 hiding (putStrLn, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine,map)
 import Crypto.Cipher.AES
@@ -27,7 +27,7 @@ data Mail = Mail {idNum :: Integer
                  ,hdr :: MailHeader
                  ,content :: String
                  ,sig :: Integer}
-    deriving(Show, Read)
+    deriving(Show, Read, Eq)
 
 data MailHeader = MailHeader { to :: String
                              , from :: Person
@@ -35,17 +35,17 @@ data MailHeader = MailHeader { to :: String
                              , bcc :: [String]
                              , subj :: String
                              , timestamp :: UTCTime }
-    deriving(Show, Read)
+    deriving(Show, Read, Eq)
 
 data Person = Person { name :: String --name
                      , addr :: String } --email address
-    deriving(Show, Read)
+    deriving(Show, Read, Eq)
 
 data EncryptedEmail = EncryptedEmail { idEnc :: Integer
                                      , encHdr :: EncryptedPacket
                                      , encContents :: EncryptedPacket
                                      , encSig :: Integer }
-    deriving(Show, Read)
+    deriving(Show, Read,Eq)
                              
 
 fastExponent :: Integer -> Integer -> Integer
@@ -162,27 +162,15 @@ sendToClient mess key hand= do
 
 recvFromClient :: ByteString -> Handle -> IO String
 recvFromClient key hand = do
-    putStrLn "In recv"
     lenStr <- hGetLine hand
     let len = read lenStr
-    putStrLn $ "received of length " ++ (show len)
     mess <- hGetLine hand
     let encMess = read mess :: ByteString
     if (Data.ByteString.Char8.length encMess < len)
         then do
-            putStrLn "overflow!"
             readAgain len encMess hand
         else do
-            putStrLn $ "Decrypting! " ++ (unpack encMess)
-            mapM_ (\x -> putStrLn ("[" ++ (show x) ++ "]")) (unpack encMess)
-            putStrLn $ show $ Prelude.length (unpack encMess)
             let dec = decryptECB (initAES key) encMess
-            --let temp = unpad (unpack dec)
-            putStrLn "bracket"
-            putStrLn $ show dec
-            putStrLn "passed"
-            putStrLn "passed"
-            putStrLn "passed"
             return $ unpad (unpack dec)
     where
         readAgain l enc han = do

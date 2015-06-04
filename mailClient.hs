@@ -6,7 +6,7 @@ module Main where
 
 import Encrypt
 import System.IO
-import Data.Map.Strict hiding (map)
+import Data.Map.Strict hiding (map,filter)
 import Control.Exception
 import System.Directory
 import Control.Concurrent.MVar
@@ -16,7 +16,7 @@ import System.Random
 import Crypto.Cipher.AES
 import Data.Time.Clock
 import Data.Char
-import Data.ByteString.Char8 hiding (putStrLn, putStr, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine,map)
+import Data.ByteString.Char8 hiding (putStrLn, putStr, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine,map,reverse,filter)
 
 data ClientDB = ClientDB  { username :: String
                       , thisPerson :: Person
@@ -28,11 +28,23 @@ data ClientDB = ClientDB  { username :: String
                       , privKey :: Key
                       , aesKey :: ByteString
                       , known :: Map String Key
-                      , mail :: [Mail]
-                      , threads :: [MailThread] }
+                      , mail :: [(Bool,Mail)] }
     deriving(Show,Read)
 
 type MailThread = [(Bool, Mail)]
+
+changeMap :: Map String Key -> ClientDB -> ClientDB
+changeMap newMap db= ClientDB (username db) (thisPerson db) (biggestMail db) (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) (aesKey db) newMap (mail db)
+
+changeMail :: [(Bool,Mail)] -> ClientDB -> ClientDB
+changeMail newMail db = ClientDB (username db) (thisPerson db) (biggestMail db) (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) (aesKey db) (known db) newMail
+
+changeAes :: ByteString -> ClientDB -> ClientDB
+changeAes newKey db = ClientDB (username db) (thisPerson db) (biggestMail db) (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) newKey (known db) (mail db)
+
+changeBigNum :: Integer -> ClientDB -> ClientDB
+changeBigNum newInt db = ClientDB (username db) (thisPerson db) newInt (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) (aesKey db) (known db) (mail db)
+
 
 printPerson :: Person -> String
 printPerson p = name (p) ++ " at " ++ addr (p)
@@ -49,8 +61,8 @@ printMail ma= do
     putStrLn $ content ma
     putStrLn $ "End Message"
 
-printMailThreads :: ClientDB -> IO ()
-printMailThreads db = mapM_ printOneThread (threads db) >> putStrLn "" where
+printMailThreads :: [MailThread] -> IO ()
+printMailThreads db = mapM_ printOneThread db >> putStrLn "" where
     printOneThread th = do
         putStrLn $ subj (hdr (snd (head th)))
         mapM_ printOneEmail th
@@ -69,25 +81,26 @@ initDB g = do
     servPub <- readKey "server.pub"
     pri <- readKey (name ++ ".priv")
     pu <-readKey (name ++ ".pub")
-    let newDB = ClientDB name (thisPerson db) (biggestMail db) (serverName db) (serverPort db) servPub pu pri (fst (genAESKey g)) (threads db)
+    let newDB = ClientDB name (thisPerson db) (biggestMail db) (serverName db) (serverPort db) servPub pu pri (fst (genAESKey g)) (known db) (mail db)
     return (newDB, snd (genAESKey g))
 
 writeDB :: String -> ClientDB -> IO ()
 writeDB path db = do
-    let newDB = ClientDB (username db) (thisPerson db) (biggestMail db) (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) (pack ("Nothing here...")) (threads db) --overwrite AES key
+    let newDB = ClientDB (username db) (thisPerson db) (biggestMail db) (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) (pack ("Nothing here...")) (known db) (mail db) --overwrite AES key
     writeFile path (show newDB) 
 
 writeMail :: ClientDB -> IO Mail
 writeMail db = do
-    putStr "To: "
+    putStrLn "Composing email"
+    putStrLn "To: "
     recpt <- getLine
-    putStr "CC: "
+    putStrLn "CC: "
     carbonStr <- getLine
     let carbon = read $ "[" ++ carbonStr ++ "]"
-    putStr "BCC: "
+    putStrLn "BCC: "
     blindStr <- getLine
     let blind = read $ "[" ++ blindStr ++ "]"
-    putStr "Subj: "
+    putStrLn "Subj: "
     su <- getLine
     putStrLn "Please write the contents of the message (end with a period on a line by itself"
     mess <- loopRead ""
@@ -104,14 +117,19 @@ writeMail db = do
                         then do
                             return s
                      else loopRead (s ++ line ++ "\n")
-    
-insertMessage :: Mail -> ClientDB -> ClientDB
-insertMessage m db = ClientDB (username db) (thisPerson db) (biggestMail db) (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) (aesKey db) (newThreads (threads db)) where
-    newThreads [] = [[(False,m)]]
+
+{- insertMessage :: (Bool,Mail) -> [MailThread] -> [MailThread]
+insertMessageThreads m oldDB = ClientDB (username db) (thisPerson db) (biggestMail db) (serverName db) (serverPort db) (servKey db) (pubKey db) (privKey db) (aesKey db) (known db) (m:mail db) (threads db) where
+    db = insertMessageThreads m oldDB
+-}
+
+insertMessageThreads :: (Bool,Mail) -> [MailThread] -> [MailThread]
+insertMessageThreads m thr =  newThreads thr where
+    newThreads [] = [[m]]
     newThreads (x:xs)
-        | match x m = ((False,m):x):xs
+        | match x m = (m:x):xs
         | otherwise = x : newThreads xs
-    match (t:ts) m = (subj (hdr m)) == (subj (hdr (snd t)))
+    match (t:ts) m = (subj (hdr (snd m))) == (subj (hdr (snd t)))
 
 performClientHandshake :: ClientDB -> Handle -> IO ()
 performClientHandshake db hand = do
@@ -122,14 +140,10 @@ performClientHandshake db hand = do
             let keyInt = rsaencrypt (servKey db) (keyToInteger (aesKey db))
             hPutStrLn hand (show keyInt)
             let shareKey = aesKey db
-            putStrLn $ show shareKey
             sendToClient (username db) shareKey hand
-            putStrLn $ "Sending user" ++ (username db)
             intStr <- recvFromClient shareKey hand
             let challenge = read intStr
-            putStrLn $ "received " ++ (show challenge)
             let resp = rsadecrypt (privKey db) challenge
-            putStrLn $ "decoded " ++ (show resp)
             sendToClient (show resp) shareKey hand
             ok <- recvFromClient shareKey hand
             if(ok == "OK")
@@ -147,41 +161,118 @@ updateEmail db hand= do
         then do
             sendToClient ("Retr " ++ (show (biggestMail db))) shareKey hand
             mails <- recvFromClient shareKey hand
-            let mail = read mails
-            let decMail = map (\x -> decryptEmail 
+            let mailList = read mails
+            decMailMaybe <- mapM (decryptEmailClient db hand) mailList
+            let decMail = map extractMaybe $ reverse $ filter (/= Nothing) decMailMaybe
+            let newBigNum = idNum $ snd $ head decMail
+            return $ changeBigNum newBigNum (changeMail (decMail ++ (mail db)) db)
+        else return db
+    where
+        extractMaybe (Just c) = c
+            
+
+decryptEmailClient :: ClientDB -> Handle -> EncryptedEmail -> IO (Maybe (Bool,Mail))
+decryptEmailClient db hand m = do
+    let decHdr = read $ decryptMessage (encHdr m) (pubKey db) :: MailHeader
+    let sender = from decHdr
+    let use = break (=='@') $ addr sender
+    (newDB, k) <- getKey (fst use) db hand
+    case k of
+        Nothing -> decMessage
+        Just key -> do
+            let (retMail, verf) = decryptEmail m key (privKey db)
+            if(verf == True)
+                then decMessage
+            else do
+                putStrLn "ERROR! MESSAGE VERIFICATION FAILED!"
+                putStrLn "DISCARDING MESSAGE"
+                return Nothing
+    where
+        decMessage = return $ Just $ (True, Mail (idEnc m) (read (decryptMessage (encHdr m) k)) ((read (decryptMessage (encContents m) k))) (encSig m))
+        k = pubKey db
+
+getKey :: String -> ClientDB -> Handle -> IO (ClientDB,Maybe Key)
+getKey use db hand = do
+    let possible = Data.Map.Strict.lookup use (known db)
+    case possible of
+        Nothing -> importKey use db hand
+        Just k -> return (db, Just k)
+            
+    
+importKey :: String -> ClientDB -> Handle -> IO (ClientDB,Maybe Key)
+importKey use db hand = do
+    sendToClient ("import " ++ use) (aesKey db) hand
+    recv <- recvFromClient (aesKey db) hand
+    if(recv == "OK")
+        then do
+            kStr <- recvFromClient (aesKey db) hand
+            sig <- recvFromClient (aesKey db) hand
+            let verf = verifySig kStr (read sig) (servKey db)
+            if(verf == True)
+                then do
+                    let newMap = insert use (read kStr) (known db)
+                    let newDB = changeMap newMap db
+                    return (newDB, Just (read kStr))
+                else do
+                    putStrLn $ "Unable to find key for " ++ use ++ ". Please import that key to verify the message"
+                    return (db, Nothing)
+        else do
+            putStrLn $ "Unable to find key for " ++ use ++". Please import that key to verify the message"
+            return (db, Nothing)
+        
 
 showHelp :: IO ()
 showHelp = do
+    putStrLn ""
     putStrLn "\":?\" -> Show this help"
     putStrLn "\":upd\" -> refresh email list from server and display emails"
     putStrLn "\":show # \" -> Show email [email number]"
     putStrLn "\":send\" -> send an email"
+    putStrLn "\":disp\" -> display emails"
+    putStrLn "\":q\" -> quit"
     putStrLn "enter anything else to quit"
+    putStrLn ""
 
-showEmail :: ClientDB -> String -> IO ()
+showEmail :: ClientDB -> String -> IO ClientDB
 showEmail db num = do
     let choice = read num
     let mailList = mail db
     getMail mailList choice where
-        getMail [] n = putStrLn "Mail number not found!"
-        getMail (x:xs) n = if (idNum x == n)
+        getMail [] n = putStrLn "Mail number not found!" >> return db
+        getMail (x:xs) n = if (idNum (snd x) == n)
                             then do
-                                printMail x
+                                printMail $ snd x
+                                let newMail = replaceMail x (mail db)
+                                let newDB = changeMail newMail db
+                                return newDB
                             else getMail xs n
+        replaceMail m [] = []
+        replaceMail m ((a,b):xs)
+            | (a,b) == m = ((False,b):xs)
+            | otherwise = (a,b) : replaceMail m xs
 
 sendEmail :: ClientDB -> Handle -> StdGen -> IO StdGen
 sendEmail db hand gen = do
     toSend <- writeMail db
     let recp = to (hdr toSend)
-    let recpPerson = lookup recp (known db)
+    let recpPerson = Data.Map.Strict.lookup recp (known db)
     case recpPerson of
-        Nothing -> putStrLn "Receiver not found!"
+        Nothing -> putStrLn "Receiver not found!" >> return gen
         Just p -> do
                     let (encSend, newGen) = encryptEmail toSend p gen
-                    sendToClient "Send" (aesKey db) hand
+                    sendToClient ("Send" ++ " " ++ recp) (aesKey db) hand
                     sendToClient (show encSend) (aesKey db) hand
+                    resp <- recvFromClient (aesKey db) hand
+                    if(resp == "OK")
+                        then putStrLn "Message sent!"
+                        else putStrLn "Message failed to send"
                     return newGen
-    
+
+parseCommand :: String -> (String, String)
+parseCommand str = (fst split, tailSafe (snd split)) where
+    split = break (== ' ') str
+    tailSafe [] = []
+    tailSafe (x:xs) = xs
 
 main :: IO ()
 main = withSocketsDo $ do
@@ -195,7 +286,7 @@ main = withSocketsDo $ do
     
     performClientHandshake db hand
     
-    updateEmail db hand
+    --updateEmail db hand
     
     runRepl db hand newGen
 
@@ -203,14 +294,20 @@ runRepl :: ClientDB -> Handle -> StdGen -> IO ()
 runRepl db hand g = do
     putStrLn "What would you like to do?"
     putStrLn "Enter \":?\" for a list of commands"
-    parseCommand res <- getLine
+    resStr <- getLine
+    let res = parseCommand resStr
     case fst res of
         ":?" -> showHelp >> runRepl db hand g
         ":upd" -> do
-                    newDB <- updateEmail db hand g
-                    runRepl newDB hand
-        ":show" -> showEmail db (snd (parseCommand res)) >> runRepl db hand g
+                    newDB <- updateEmail db hand
+                    runRepl newDB hand g
+        ":show" -> do 
+                    newDb <- showEmail db (snd (parseCommand (fst res)))
+                    runRepl newDb hand g
         ":send" -> do
-                    newG <- sendEmail db hand
+                    newG <- sendEmail db hand g
                     runRepl db hand newG
-        _ -> return ()
+        ":q" -> return ()
+        _ -> do
+            putStrLn "Command not found"
+            runRepl db hand g

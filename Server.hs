@@ -148,42 +148,46 @@ clientAuth :: MVar ServerDB -> Handle -> IO ()
 clientAuth var hand = do
     key <- performHandshake var hand
     useStr <- recvFromClient key hand
-    putStrLn $ "received user " ++ useStr
     db <- readMVar var
     let use = Data.Map.Strict.lookup useStr (users db)
     case use of
-        Nothing -> putStrLn "No Such User" >> return ()
+        Nothing -> return ()
         Just user -> do
-            putStrLn "Received user"
             g <- getStdGen
-            let (r,newGen) = random g :: (Integer, StdGen)
+            let (r,newGen) = randomR(1,115792089237316195423570985008687907853269984665640564039457584007913129639936) g :: (Integer, StdGen)
             let sending = rsaencrypt (pkey user) r
             sendToClient (show sending) key hand
             ret <- recvFromClient key hand
-            if ((read ret) == sending)
+            if ((read ret) == r)
                 then do
                     sendToClient "OK" key hand
                     loopRecv var key user hand key newGen
                 else do
+                    putStrLn "auth failure"
+                    putStrLn $ show r
+                    putStrLn $ ret
                     hClose hand
                     return ()
     where
         loopRecv v k u h ke g = do
             mess <- recvFromClient k h
+            putStrLn $ "[" ++ mess ++ "]"
             newG <- parseMessage mess v u h ke g
             loopRecv v k u h ke newG
 
 parseMessage :: String -> MVar ServerDB -> UserEntry -> Handle -> ByteString -> StdGen -> IO StdGen
-parseMessage mess var use hand key gen = return gen where
+parseMessage mess var use hand key gen = runner where
     comm = fst $ splitCommand mess
     cont = snd $ splitCommand mess
     runner
         | comm == "Send" = do
-            storeMail (read (snd (splitCommand cont))) var (fst (splitCommand cont))
+            em <- recvFromClient key hand
+            storeMail (read (em)) var (cont)
             sendToClient "OK" key hand
             return gen
         | comm == "Upd" = do
-            num <- getBiggestId var use
+            db <- readMVar var
+            num <- getBiggestId db use
             sendToClient (show num) key hand
             return gen
         | comm == "Retr" = do
@@ -191,28 +195,53 @@ parseMessage mess var use hand key gen = return gen where
             mailList <- getMail var use num
             sendToClient (show mailList) key hand
             return gen
-            
+        | comm == "Import" = do
+            let target = cont
+            sendPubKey cont var key hand
+            return gen
+        | otherwise = do
+            putStrLn $ "Command not found: " ++ comm
+            return gen
 
+sendPubKey :: String -> MVar ServerDB -> ByteString -> Handle -> IO ()
+sendPubKey useStr var key hand = do
+    db <- readMVar var
+    let use = Data.Map.Strict.lookup useStr (users db)
+    case use of
+        Nothing -> sendToClient "No User" key hand >> return ()
+        Just u -> do
+                    sendToClient "OK" key hand
+                    sendToClient (show (pkey u)) key hand
+                    sendToClient (show (signMessage (show (pkey u)) (privKey db))) key hand
+                    return ()
+            
+{-TODO: failure if user not found to client -}
 storeMail :: EncryptedEmail -> MVar ServerDB -> String -> IO ()
 storeMail m var use = do
+    putStrLn "receiving message"
     db <- takeMVar var
-    case (Data.Map.Strict.lookup (use) (users db)) of
-        Nothing -> putMVar var db >> return ()
+    let useName = fst $ break (=='@') use
+    case (Data.Map.Strict.lookup (useName) (users db)) of
+        Nothing -> do
+            putStrLn $ "User: " ++ use ++ " not found"
+            putMVar var db >> return ()
         Just upUse -> do
-            let biggestId = idEnc (head (mail upUse))
+            biggestId <- getBiggestId db upUse
             let newMail = EncryptedEmail (biggestId + 1) (encHdr m) (encContents m) (encSig m)
-            let newMap = adjust (appendMail newMail) (use) (users db)
+            let newMap = adjust (appendMail newMail) (useName) (users db)
             let newDB = ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newMap
             putMVar var newDB
 
-getBiggestId :: MVar ServerDB -> UserEntry -> IO Integer
-getBiggestId var use = do
-    db <- readMVar var
+getBiggestId :: ServerDB -> UserEntry -> IO Integer
+getBiggestId db use = do
     case (Data.Map.Strict.lookup (username use) (users db)) of
         Nothing -> return 0
         Just upUse -> do
-        let biggestId = idEnc (head (mail upUse))
-        return biggestId
+            if(mail upUse == [])
+                then return 0
+            else do
+                let biggestId = idEnc (head (mail upUse))
+                return biggestId
 
 getMail :: MVar ServerDB -> UserEntry -> Integer -> IO [EncryptedEmail]
 getMail var use clientNum = do
