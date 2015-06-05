@@ -3,9 +3,9 @@
 - given a key (can be read in from a file, encrypts the message with rsa and can decrypt it with the opposite key
 -}
 
-module Encrypt (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger, decryptMessage, decryptEmail, encryptEmail, verifySig) where
+module Encrypt (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger, decryptMessage, decryptEmail, encryptEmail, verifySig,changeBCC,changeMailBCC) where
 
-import Data.ByteString.Char8 hiding (putStrLn, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine,map)
+import Data.ByteString.Char8 (pack,unpack,ByteString,cons,length,empty,append)
 import Crypto.Cipher.AES
 import Data.Bits
 import Data.List.Split
@@ -150,7 +150,13 @@ decryptEmail m pub priv = (retMail, verfy) where
     header = read $ decryptMessage (encHdr m) priv
     cont = read $ decryptMessage (encContents m) priv
     retMail = Mail (idEnc m) header cont (encSig m)
-    verfy = verifySig ((show header) ++ cont) (encSig m) pub
+    verfy = verifySig ((show (changeBCC header [])) ++ cont) (encSig m) pub
+
+changeBCC :: MailHeader -> [String] -> MailHeader
+changeBCC old targ = MailHeader (to old) (from old) (cc old) targ (subj old) (timestamp old)
+
+changeMailBCC :: Mail -> [String] -> Mail
+changeMailBCC m targ = Mail (idNum m) (changeBCC (hdr m) targ) (content m) (sig m) 
 
 sendToClient :: String -> ByteString -> Handle -> IO ()
 sendToClient mess key hand= do

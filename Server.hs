@@ -14,7 +14,8 @@ import Network
 import System.Random
 import Crypto.Cipher.AES
 import Data.Char
-import Data.ByteString.Char8 hiding (putStrLn, getLine,head,break,readFile,writeFile,hPutStrLn,hGetLine,map)
+import System.Console.Readline (readline)
+import Data.ByteString.Char8 (pack,unpack,ByteString)
 
 data ServerDB = ServerDB { serverName :: String
                          , hname :: String
@@ -28,20 +29,36 @@ data UserEntry = UserEntry { username :: String
                             ,mail :: [EncryptedEmail] }
     deriving(Show, Read)
 
-readServer :: IO ServerDB
-readServer = do
-    dbStr <- readFile "server.db"
-    let db = read dbStr
-    evaluate db --enforce strictness
+consoleLine :: String -> IO String
+consoleLine pr = do
+    res <- readline pr
+    case res of
+        Nothing -> error "EOF received, closing"
+        Just r -> return r
 
 initServer :: IO ServerDB
 initServer = do
-    oldDB <- readServer
-    let name = serverName oldDB
-    priv <- readKey (name ++ ".priv")
-    pub <-readKey (name ++ ".pub")
-    let newDB = ServerDB name (hname oldDB) priv pub (users oldDB)
+    dbExists <- doesFileExist "server.db"
+    if(dbExists)
+        then do
+            dbStr <- readFile "server.db"
+            let db = read dbStr
+            return db
+        else createNewDB
+
+createNewDB :: IO ServerDB
+createNewDB = do
+    putStrLn "It looks like you haven't started this server before, please enter some information to initialize the database"
+    nam <- consoleLine "Please enter the server name (eg. skynet): "
+    hn <- consoleLine "Please enter the address of the server (eg. skynet.uchicago.edu): "
+    prkeyFile <- consoleLine "Please enter the filename for the private key of the server: "
+    prkey <- readKey prkeyFile
+    pukeyFile <- consoleLine "Please enter the filename for the public key of the server: "
+    pukey <- readKey pukeyFile
+    putStrLn "Client database initialized"
+    let newDB = ServerDB nam hn prkey pukey empty
     return newDB
+
 
 appendMail :: EncryptedEmail -> UserEntry -> UserEntry
 appendMail m use = UserEntry (username use) (pkey use) (m : mail use)
@@ -121,7 +138,8 @@ modUser var = do
 writeDB :: MVar ServerDB -> IO ()
 writeDB var = do
     db <- readMVar var
-    writeFile "server.db" (show db)
+    writeFile "server2.db" (show db)
+    renameFile "server2.db" "server.db"
     return ()
 
 performHandshake :: MVar ServerDB -> Handle -> IO ByteString
@@ -171,7 +189,6 @@ clientAuth var hand = do
     where
         loopRecv v k u h ke g = do
             mess <- recvFromClient k h
-            putStrLn $ "[" ++ mess ++ "]"
             newG <- parseMessage mess v u h ke g
             loopRecv v k u h ke newG
 
@@ -206,7 +223,7 @@ parseMessage mess var use hand key gen = runner where
 sendPubKey :: String -> MVar ServerDB -> ByteString -> Handle -> IO ()
 sendPubKey useStr var key hand = do
     db <- readMVar var
-    let use = Data.Map.Strict.lookup useStr (users db)
+    let use = Data.Map.Strict.lookup (fst (break (=='@') useStr)) (users db)
     case use of
         Nothing -> sendToClient "No User" key hand >> return ()
         Just u -> do
