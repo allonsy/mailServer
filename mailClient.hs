@@ -399,29 +399,34 @@ runRepl :: ClientDB -> Handle -> StdGen -> IO ()
 runRepl db hand g = do
     putStrLn "What would you like to do?"
     putStrLn "Enter \":?\" for a list of commands"
-    resStr <- getLine
-    let res = parseCommand resStr
-    case fst res of
-        ":?" -> showHelp >> runRepl db hand g
-        ":upd" -> do
-                    newDB <- updateEmail db hand
-                    runRepl newDB hand g
-        ":show" -> do 
-                    newDb <- showEmail db (snd (parseCommand (resStr)))
-                    runRepl newDb hand g
-        ":re" -> do 
-                    (newGen,newDB) <- reply (snd (parseCommand (resStr))) db hand g
-                    runRepl newDB hand newGen
-        ":disp" -> do
-                    showAllEmails db
+    maybeRes <- readline ">>> "
+    case maybeRes of
+        Nothing -> do
+            putStrLn "Goodbye!"
+            writeDB "client.db" db
+        Just resStr -> do
+            let res = parseCommand resStr
+            case fst res of
+                ":?" -> showHelp >> runRepl db hand g
+                ":upd" -> do
+                            newDB <- updateEmail db hand
+                            runRepl newDB hand g
+                ":show" -> do 
+                            newDb <- showEmail db (snd (parseCommand (resStr)))
+                            runRepl newDb hand g
+                ":re" -> do 
+                            (newGen,newDB) <- reply (snd (parseCommand (resStr))) db hand g
+                            runRepl newDB hand newGen
+                ":disp" -> do
+                            showAllEmails db
+                            runRepl db hand g
+                ":send" -> do
+                            (newG,newDB) <- sendEmailMenu db hand g
+                            runRepl newDB hand newG
+                ":import" -> do
+                            newDB <- importKeyFromUser db
+                            runRepl newDB hand g
+                ":q" -> writeDB "client.db" db
+                _ -> do
+                    putStrLn "Command not found"
                     runRepl db hand g
-        ":send" -> do
-                    (newG,newDB) <- sendEmailMenu db hand g
-                    runRepl newDB hand newG
-        ":import" -> do
-                    newDB <- importKeyFromUser db
-                    runRepl newDB hand g
-        ":q" -> writeDB "client.db" db
-        _ -> do
-            putStrLn "Command not found"
-            runRepl db hand g
