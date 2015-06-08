@@ -3,12 +3,11 @@
 - given a key (can be read in from a file, encrypts the message with rsa and can decrypt it with the opposite key
 -}
 
-module Encrypt (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger, decryptMessage, decryptEmail, encryptEmail, verifySig,changeBCC,changeMailBCC) where
+module EncryptMail (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger, decryptMessage, decryptEmail, encryptEmail, verifySig,changeBCC,changeMailBCC) where
 
 import Data.ByteString.Char8 (pack,unpack,ByteString,cons,length,empty,append)
 import Crypto.Cipher.AES
 import Data.Bits
-import Data.List.Split
 import System.IO
 import Data.Char
 import System.Random
@@ -62,7 +61,7 @@ rsadecrypt :: Key -> Integer -> Integer
 rsadecrypt key c = fastMod c (expo key) (nValue key)
 
 fastMod :: Integer -> Integer -> Integer -> Integer
-fastMod base exp modulus = fastModHelper 1 (base `mod` modulus) exp where
+fastMod base expon modulus = fastModHelper 1 (base `mod` modulus) expon where
     fastModHelper res b e
         | e <= 0 = res
         | otherwise = if ((e `mod` 2) == 1)
@@ -83,7 +82,6 @@ pad :: String -> ByteString
 pad start = process $ pack start where
     process mess = append (genLs 0 empty) mess
     num = 16 - ((Data.ByteString.Char8.length (pack start)) `mod` 16)
-    constZero = 0 :: Word
     genLs n ls
         | n >= num = ls
         | otherwise = genLs (n+1) (cons '\NUL' ls)

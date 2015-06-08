@@ -3,7 +3,7 @@
 -}
 module Main where
 
-import Encrypt
+import EncryptMail
 import System.IO
 import Data.Map.Strict hiding (map)
 import Control.Exception
@@ -12,10 +12,8 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import Network
 import System.Random
-import Crypto.Cipher.AES
-import Data.Char
 import System.Console.Readline (readline)
-import Data.ByteString.Char8 (pack,unpack,ByteString)
+import Data.ByteString.Char8 (ByteString)
 
 data ServerDB = ServerDB { serverName :: String
                          , hname :: String
@@ -82,15 +80,15 @@ interMenu db = do
 addUser :: MVar ServerDB -> IO ()
 addUser var = do
     putStrLn "What is the username of the new User?"
-    name <- getLine
-    putStrLn $ "What is the filename for the public key of user: " ++ name
+    nameUser <- getLine
+    putStrLn $ "What is the filename for the public key of user: " ++ nameUser
     fname <- getLine
     sanity <- doesFileExist fname
     if sanity
         then do
             db <- takeMVar var
             pub <- readKey fname
-            let newDB = insert name (UserEntry name pub []) (users db)
+            let newDB = insert nameUser (UserEntry nameUser pub []) (users db)
             putMVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
             putStrLn "User added"
             interMenu var
@@ -101,13 +99,13 @@ addUser var = do
 delUser :: MVar ServerDB -> IO ()
 delUser var = do
     putStrLn "What is the username of the User?"
-    name <- getLine
+    newName <- getLine
     putStrLn "Are you sure? (y/n) "
     sanity <- getLine
     if (sanity == "y")
         then do
             db <- takeMVar var
-            let newDB = delete name (users db)
+            let newDB = delete newName (users db)
             putMVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
             putStrLn "User deleted"
             interMenu var
@@ -116,17 +114,17 @@ delUser var = do
 modUser :: MVar ServerDB -> IO ()
 modUser var = do
     putStrLn "What is the username of the target User?"
-    name <- getLine
+    oldName <- getLine
     putStrLn "What is the new username for the user?"
     newName <- getLine
-    putStrLn $ "What is the filename for the public key of user: " ++ name
+    putStrLn $ "What is the filename for the public key of user: " ++ oldName
     fname <- getLine
     sanity <- doesFileExist fname
     if sanity
         then do
             pub <- readKey fname
             db <- takeMVar var
-            let newDB = adjust (\_ -> UserEntry name pub []) name (users db)
+            let newDB = adjust (\_ -> UserEntry newName pub []) oldName (users db)
             putMVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
             putStrLn "user modified"
             interMenu var
@@ -213,7 +211,6 @@ parseMessage mess var use hand key gen = runner where
             sendToClient (show mailList) key hand
             return gen
         | comm == "Import" = do
-            let target = cont
             sendPubKey cont var key hand
             return gen
         | otherwise = do
@@ -274,10 +271,10 @@ getMail var use clientNum = do
                     | otherwise = ls
 
 splitCommand :: String -> (String, String)
-splitCommand str = (fst split, tailSafe (snd split)) where
-    split = break (== ' ') str
+splitCommand str = (fst splitCom, tailSafe (snd splitCom)) where
+    splitCom = break (== ' ') str
     tailSafe [] = []
-    tailSafe (x:xs) = xs
+    tailSafe (_:xs) = xs
 
 main :: IO ()
 main = withSocketsDo $ do

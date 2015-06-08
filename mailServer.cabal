@@ -1,0 +1,92 @@
+-- Alec Snyder
+-- mail server lab 2
+name:           encryptMail
+version:        1.0.0
+license-file:   LICENSE
+author:         Alec Snyder
+maintainer:     alsnyder@uchicago.edu
+synopsis:       A simple encrypted mail server and client
+description:    A simple encrypted mail server and client
+build-type:     Simple
+cabal-version:  >= 1.10
+category:       System
+
+extra-source-files:
+  README.md,.gitignore
+
+library
+  hs-source-dirs: src
+  exposed-modules:
+    EncryptMail
+  build-depends:
+    base
+    ,bytestring
+    ,cipher-aes
+    ,random
+    ,cryptohash
+    ,time
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable Server
+  hs-source-dirs: src
+  main-is: Server.hs
+  build-depends:
+    base
+   ,encryptMail
+   ,bytestring
+   ,readline
+   ,random
+   ,network
+   ,directory
+   ,containers
+   ,time
+   ,cipher-aes
+   ,cryptohash
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable Client
+  hs-source-dirs: src
+  main-is: mailClient.hs
+  build-depends:
+    base
+   ,encryptMail
+   ,bytestring
+   ,time
+   ,network
+   ,readline
+   ,random
+   ,directory
+   ,containers
+   ,cryptohash
+   ,cipher-aes
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable KeyGen
+  hs-source-dirs: src
+  main-is: KeyGen.hs
+  build-depends:
+    base
+   ,encryptMail
+   ,random
+   ,cryptohash
+   ,cipher-aes
+   ,bytestring
+   ,time
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+--test-suite test-chat
+--  hs-source-dirs: test
+--  main-is: TestChat.hs
+--  type: exitcode-stdio-1.0
+--  build-depends:
+--    base < 5
+--   ,chat
+--   ,hspec
+--   ,network
+--  default-language: Haskell2010
+--  ghc-options: -Wall
+
