@@ -1,65 +1,80 @@
 -- Alec Snyder
--- chat server lab 2
-name:           mailServer
+-- mail server lab 2
+name:           encryptMail
 version:        1.0.0
 license-file:   LICENSE
 author:         Alec Snyder
 maintainer:     alsnyder@uchicago.edu
-synopsis:       An encrypted mail server environment
-description:    A simple mail server and client to send encrypted mail to peers
+synopsis:       A simple encrypted mail server and client
+description:    A simple encrypted mail server and client
 build-type:     Simple
 cabal-version:  >= 1.10
 category:       System
 
 extra-source-files:
-  README.md
-  ,.gitignore
+  README.md,.gitignore
 
 library
   hs-source-dirs: src
   exposed-modules:
-    Encrypt
+    EncryptMail
   build-depends:
     base
-    ,cryptohash
     ,bytestring
     ,cipher-aes
-    ,time
     ,random
+    ,cryptohash
+    ,time
   default-language: Haskell2010
   ghc-options: -Wall
 
-executable server
+executable Server
   hs-source-dirs: src
   main-is: Server.hs
   build-depends:
     base
-   ,network
-   ,cryptohash
-   ,time
-   ,containers
+   ,encryptMail
    ,bytestring
-   ,cipher-aes
-   ,directory
-   ,random
    ,readline
+   ,random
+   ,network
+   ,directory
+   ,containers
+   ,time
+   ,cipher-aes
+   ,cryptohash
   default-language: Haskell2010
   ghc-options: -Wall
 
-executable client
+executable Client
   hs-source-dirs: src
   main-is: mailClient.hs
   build-depends:
     base
-   ,network
-   ,cryptohash
-   ,containers
-   ,directory
-   ,random
-   ,cipher-aes
-   ,time
-   ,readline
+   ,encryptMail
    ,bytestring
+   ,time
+   ,network
+   ,readline
+   ,random
+   ,directory
+   ,containers
+   ,cryptohash
+   ,cipher-aes
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable KeyGen
+  hs-source-dirs: src
+  main-is: KeyGen.hs
+  build-depends:
+    base
+   ,encryptMail
+   ,random
+   ,cryptohash
+   ,cipher-aes
+   ,bytestring
+   ,time
   default-language: Haskell2010
   ghc-options: -Wall
 
@@ -74,3 +89,4 @@ executable client
 --   ,network
 --  default-language: Haskell2010
 --  ghc-options: -Wall
+

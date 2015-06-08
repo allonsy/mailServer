@@ -3,7 +3,7 @@
 -}
 module Main where
 
-import Encrypt
+import EncryptMail
 import System.IO
 import Data.Map.Strict hiding (map)
 import Control.Exception

@@ -3,7 +3,7 @@
 - given a key (can be read in from a file, encrypts the message with rsa and can decrypt it with the opposite key
 -}
 
-module Encrypt (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger, decryptMessage, decryptEmail, encryptEmail, verifySig,changeBCC,changeMailBCC) where
+module EncryptMail (signMessage,sendToClient,recvFromClient,genAESKey,fastExponent,Key(Key),MailHeader(MailHeader),Person(Person),EncryptedEmail(EncryptedEmail),Mail(Mail),idEnc,idNum,encHdr,to,from,cc,bcc,content,name,hdr,subj,addr,timestamp,encContents,encSig,rsaencrypt,rsadecrypt,fastMod, readKey, integerToKey, keyToInteger, decryptMessage, decryptEmail, encryptEmail, verifySig,changeBCC,changeMailBCC) where
 
 import Data.ByteString.Char8 (pack,unpack,ByteString,cons,length,empty,append)
 import Crypto.Cipher.AES

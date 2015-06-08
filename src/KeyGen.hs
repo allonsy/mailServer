@@ -5,7 +5,7 @@
 
 module Main where
 
-import Encrypt
+import EncryptMail
 import System.Random
 import Data.Bits
 
@@ -18,20 +18,19 @@ main = do
     let (p2,newGen4) = retPrime seed2 newGen3
     let n = p1 * p2
     let phi = (p1-1) * (p2-1)
-    let (e,newGen5) = genCoprime 65537 phi newGen4
+    let (e,_) = genCoprime 65537 phi newGen4
     let d = multInverse e phi
-    return ((d,n),(e,n))
     putStrLn "Generating keys, please enter your demographic information"
     putStrLn "What is your name? "
-    name <- getLine
+    nameUser <- getLine
     putStrLn "What is your email? "
     email <- getLine
-    let priv = Key (Person name email) n d
-    let pub = Key (Person name email) n e
-    putStrLn $ "Writing public key to " ++ name ++ ".pub"
-    writeFile (name ++ ".pub") (show pub)
-    putStrLn $ "Writing private key to " ++ name ++ ".priv"
-    writeFile (name ++ ".priv") (show priv)
+    let priv = Key (Person nameUser email) n d
+    let pub = Key (Person nameUser email) n e
+    putStrLn $ "Writing public key to " ++ nameUser ++ ".pub"
+    writeFile (nameUser ++ ".pub") (show pub)
+    putStrLn $ "Writing private key to " ++ nameUser ++ ".priv"
+    writeFile (nameUser ++ ".priv") (show priv)
     
 
 genByte :: StdGen -> (Integer, StdGen)
@@ -54,15 +53,15 @@ genCoprime seed target gen
 
 retPrime :: Integer -> StdGen -> (Integer, StdGen)
 retPrime p gen
-    | pred = (p,newGen)
+    | predi = (p,newGen)
     | otherwise = retPrime (p+2) newGen where
-    (pred,newGen) = isPrime p gen
+    (predi,newGen) = isPrime p gen
 
 factor :: Integer -> (Integer,Integer)
 factor num = factorHelper 0 num where
-    factorHelper exp mult
-        | odd mult = (exp,mult)
-        | otherwise = factorHelper (exp+1) (mult `quot` 2)
+    factorHelper expon mult
+        | odd mult = (expon,mult)
+        | otherwise = factorHelper (expon+1) (mult `quot` 2)
 
 isPrime :: Integer -> StdGen -> (Bool,StdGen)
 isPrime num gen = bigLoop 0 gen where
