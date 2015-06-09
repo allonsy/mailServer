@@ -1,0 +1,5 @@
+:upd
+:disp
+:show 2
+:q
+

@@ -1,0 +1,26 @@
+:import
+test2@localhost
+../test2client/test2.pub
+:send
+test2@localhost
+
+
+Hey There!
+This is a test
+.
+:send
+test2@localhost
+test3@localhost
+
+Hey There Again!
+this is another test for cc
+.
+:send
+test2@localhost
+
+test3@localhost
+Hey there again again!
+This is a bcc test
+.
+:q
+

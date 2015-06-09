@@ -78,15 +78,17 @@ executable KeyGen
   default-language: Haskell2010
   ghc-options: -Wall
 
---test-suite test-chat
---  hs-source-dirs: test
---  main-is: TestChat.hs
---  type: exitcode-stdio-1.0
---  build-depends:
---    base < 5
---   ,chat
---   ,hspec
---   ,network
---  default-language: Haskell2010
---  ghc-options: -Wall
-
+test-suite test-chat
+  hs-source-dirs: test
+  main-is: TestMail.hs
+  type: exitcode-stdio-1.0
+  build-depends:
+    base
+   ,encryptMail
+   ,random
+   ,hspec
+   ,QuickCheck
+   ,containers
+   ,bytestring
+  default-language: Haskell2010
+  ghc-options: -Wall

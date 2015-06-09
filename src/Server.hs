@@ -1,39 +1,38 @@
 {- Alec Snyder
-- mailServer server file
+- mailServer Server
+- github: https://github.com/allonsy/mailServer
 -}
 module Main where
 
-import EncryptMail
-import System.IO
-import Data.Map.Strict hiding (map)
-import Control.Exception
-import System.Directory
 import Control.Concurrent.MVar
 import Control.Concurrent
-import Network
-import System.Random
-import System.Console.Readline (readline)
+import Control.Exception
 import Data.ByteString.Char8 (ByteString)
+import Data.Map.Strict hiding (map)
+import EncryptMail
+import Network
+import System.Console.Readline (readline)
+import System.Directory
+import System.Environment
+import System.IO
+import System.Random
+
 
 data ServerDB = ServerDB { serverName :: String
-                         , hname :: String
-                         , privKey :: Key
-                         , pubKey :: Key
-                         , users :: Map String UserEntry }
+                         , hname :: String --full location: skynet.linuxd.org, 121.134.43.122, etc...
+                         , privKey :: Key --private key of server
+                         , pubKey :: Key --public key of user
+                         , users :: Map String UserEntry --map with usernames as keys and userEntries as values
+                         } 
     deriving (Show, Read)
 
-data UserEntry = UserEntry { username :: String
-                            ,pkey :: Key
-                            ,mail :: [EncryptedEmail] }
+data UserEntry = UserEntry { username :: String --username of this user
+                            ,pkey :: Key --public key of this user
+                            ,mail :: [EncryptedEmail] --list of all mail this user has received
+                            }
     deriving(Show, Read)
 
-consoleLine :: String -> IO String
-consoleLine pr = do
-    res <- readline pr
-    case res of
-        Nothing -> error "EOF received, closing"
-        Just r -> return r
-
+--read in server database file and return it
 initServer :: IO ServerDB
 initServer = do
     dbExists <- doesFileExist "server.db"
@@ -44,6 +43,7 @@ initServer = do
             return db
         else createNewDB
 
+--if no database exists, ask user for primary info and return resulting db
 createNewDB :: IO ServerDB
 createNewDB = do
     putStrLn "It looks like you haven't started this server before, please enter some information to initialize the database"
@@ -57,10 +57,20 @@ createNewDB = do
     let newDB = ServerDB nam hn prkey pukey empty
     return newDB
 
+--read from the console, cast away the Maybe wrapper
+consoleLine :: String -> IO String
+consoleLine pr = do
+    res <- readline pr
+    case res of
+        Nothing -> error "EOF received, closing"
+        Just r -> return r
 
+--appends a given mail message onto the list of mail for this user
+--returns the new UserEntry
 appendMail :: EncryptedEmail -> UserEntry -> UserEntry
 appendMail m use = UserEntry (username use) (pkey use) (m : mail use)
 
+--interactive menu to modify user db
 interMenu :: MVar ServerDB -> IO ()
 interMenu db = do
     putStrLn "What would you like to do?"
@@ -77,6 +87,7 @@ interMenu db = do
         4 -> writeDB db
         _ -> putStrLn "Choice not recognized" >> interMenu db
 
+--add a user
 addUser :: MVar ServerDB -> IO ()
 addUser var = do
     putStrLn "What is the username of the new User?"
@@ -89,13 +100,18 @@ addUser var = do
             db <- takeMVar var
             pub <- readKey fname
             let newDB = insert nameUser (UserEntry nameUser pub []) (users db)
-            putMVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
+            putMVar var $ ServerDB (serverName db) 
+                                   (hname db) 
+                                   (privKey db) 
+                                   (pubKey db) 
+                                   newDB
             putStrLn "User added"
             interMenu var
         else do
             putStrLn "File name doesn't exist"
             addUser var
 
+--delete a user
 delUser :: MVar ServerDB -> IO ()
 delUser var = do
     putStrLn "What is the username of the User?"
@@ -106,11 +122,16 @@ delUser var = do
         then do
             db <- takeMVar var
             let newDB = delete newName (users db)
-            putMVar var $ ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newDB
+            putMVar var $ ServerDB (serverName db) 
+                                   (hname db) 
+                                   (privKey db) 
+                                   (pubKey db) 
+                                   newDB
             putStrLn "User deleted"
             interMenu var
         else interMenu var
 
+--modify a users username or public key
 modUser :: MVar ServerDB -> IO ()
 modUser var = do
     putStrLn "What is the username of the target User?"
@@ -132,7 +153,7 @@ modUser var = do
             putStrLn "File name doesn't exist"
             modUser var
 
-
+--write the given db to the file "server.db"
 writeDB :: MVar ServerDB -> IO ()
 writeDB var = do
     db <- readMVar var
@@ -140,6 +161,9 @@ writeDB var = do
     renameFile "server2.db" "server.db"
     return ()
 
+--performs SSL like handshake, no client authentication yet
+--sends server public key
+--then receives the shared AES key that the client generates
 performHandshake :: MVar ServerDB -> Handle -> IO ByteString
 performHandshake var hand = do
     db <- readMVar var
@@ -149,16 +173,11 @@ performHandshake var hand = do
     let decKey = integerToKey $ rsadecrypt (privKey db) keyInt
     return decKey
 
-{- TODO: ADD A WAY TO GRACEFULLY EXIT -}
-sendMailClient :: MVar ServerDB -> Handle -> IO ()
-sendMailClient var hand = do
-    key <- performHandshake var hand
-    loopSend var key hand where
-        loopSend v k han = do
-            use <- recvFromClient k han
-            encMailMess <- recvFromClient k han
-            storeMail (read encMailMess) v use
-            loopSend v k han
+--performs SSL-like handshake and autheticates client
+--after SSL handshake occurs, it sends the user a random nonce
+--encrypted with the users public key
+--the user decrypts with his private key and returns the correct random number
+--if successful, the client is authenticated and is allowed to exectute db queries
 
 clientAuth :: MVar ServerDB -> Handle -> IO ()
 clientAuth var hand = do
@@ -180,8 +199,7 @@ clientAuth var hand = do
                     loopRecv var key user hand key newGen
                 else do
                     putStrLn "auth failure"
-                    putStrLn $ show r
-                    putStrLn $ ret
+                    sendToClient "auth failure" key hand
                     hClose hand
                     return ()
     where
@@ -190,6 +208,8 @@ clientAuth var hand = do
             newG <- parseMessage mess v u h ke g
             loopRecv v k u h ke newG
 
+--parses the command into the first part and the rest and calls functions
+--based on what it parses
 parseMessage :: String -> MVar ServerDB -> UserEntry -> Handle -> ByteString -> StdGen -> IO StdGen
 parseMessage mess var use hand key gen = runner where
     comm = fst $ splitCommand mess
@@ -217,6 +237,8 @@ parseMessage mess var use hand key gen = runner where
             putStrLn $ "Command not found: " ++ comm
             return gen
 
+--given a username, it send the public key for that user signed by the
+--server's key pair
 sendPubKey :: String -> MVar ServerDB -> ByteString -> Handle -> IO ()
 sendPubKey useStr var key hand = do
     db <- readMVar var
@@ -229,7 +251,8 @@ sendPubKey useStr var key hand = do
                     sendToClient (show (signMessage (show (pkey u)) (privKey db))) key hand
                     return ()
             
-{-TODO: failure if user not found to client -}
+--Given an encrypted email from a client and a target user for this email
+--it stores this email in the correct mailbox and updates the db
 storeMail :: EncryptedEmail -> MVar ServerDB -> String -> IO ()
 storeMail m var use = do
     putStrLn "receiving message"
@@ -241,11 +264,25 @@ storeMail m var use = do
             putMVar var db >> return ()
         Just upUse -> do
             biggestId <- getBiggestId db upUse
-            let newMail = EncryptedEmail (biggestId + 1) (encHdr m) (encContents m) (encSig m)
-            let newMap = adjust (appendMail newMail) (useName) (users db)
-            let newDB = ServerDB (serverName db) (hname db) (privKey db) (pubKey db) newMap
+            let newMail = EncryptedEmail (biggestId + 1) 
+                                         (encHdr m) 
+                                         (encContents m) 
+                                         (encSig m)
+            
+            let newMap = adjust (appendMail newMail) 
+                                (useName) 
+                                (users db)
+            
+            let newDB = ServerDB (serverName db) 
+                                 (hname db) 
+                                 (privKey db) 
+                                 (pubKey db) 
+                                 newMap
             putMVar var newDB
 
+--gets the id of the newest email for a given user
+--since the emails are stored in a stack
+--this is the id top of the stack
 getBiggestId :: ServerDB -> UserEntry -> IO Integer
 getBiggestId db use = do
     case (Data.Map.Strict.lookup (username use) (users db)) of
@@ -257,6 +294,8 @@ getBiggestId db use = do
                 let biggestId = idEnc (head (mail upUse))
                 return biggestId
 
+--given an integer, it returns the list of email for all emails of a given
+--user that have id greater than the given integer
 getMail :: MVar ServerDB -> UserEntry -> Integer -> IO [EncryptedEmail]
 getMail var use clientNum = do
     db <- readMVar var
@@ -269,41 +308,53 @@ getMail var use clientNum = do
                 retMail ls (x:xs)
                     | idEnc x > clientNum = retMail (x:ls) xs
                     | otherwise = ls
-
+--splits a string based on space 
+-- eg: "hello world" -> ("hello","word")
+--it discards the splitting space
 splitCommand :: String -> (String, String)
 splitCommand str = (fst splitCom, tailSafe (snd splitCom)) where
     splitCom = break (== ' ') str
     tailSafe [] = []
     tailSafe (_:xs) = xs
 
+--runner
 main :: IO ()
 main = withSocketsDo $ do
+    arg <- getArgs
     db <- initServer
     serv <- newMVar db
     
-    sock <- listenOn $ Service "6667"
-    _ <- forkIO $ writeLoop serv
-    _ <- forkIO $ acceptLoop serv sock
+    if(length arg == 1)
+        then do
+            sock <- listenOn $ Service (arg !! 0)
+            _ <- forkIO $ writeLoop serv
+            _ <- forkIO $ acceptLoop serv sock
+            interMenu serv --start the interactive menu
+        else do
+            sock <- listenOn $ Service "6667"
+            _ <- forkIO $ writeLoop serv
+            _ <- forkIO $ acceptLoop serv sock
+            interMenu serv --start the interactive menu
     
-    interMenu serv
 
+--accepts connections, formats the handle, and forks it off to the client handler
 acceptLoop :: MVar ServerDB -> Socket -> IO ()
 acceptLoop var sock = do
     (hand,_,_) <- accept sock
     hSetNewlineMode hand (NewlineMode CRLF CRLF)
     hSetBuffering hand LineBuffering
-    _ <- forkIO (handleClient var hand) --(\_ -> hClose hand)
+    _ <- forkFinally (handleClient var hand) (\_ -> hClose hand)
     acceptLoop var sock
     
-
+--passes off the client to clientAuth for authentication and command parsing
 handleClient :: MVar ServerDB -> Handle -> IO ()
 handleClient var hand = do
     dir <- hGetLine hand
     case dir of
-        "SendAuth" -> sendMailClient var hand
         "ClientAuth" -> clientAuth var hand
         _ -> return ()
 
+--writes db to file every minute
 writeLoop :: MVar ServerDB -> IO ()
 writeLoop var = do
     threadDelay 60000000

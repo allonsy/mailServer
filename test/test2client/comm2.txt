@@ -1,0 +1,9 @@
+:upd
+:show 1
+:disp
+:show 3
+:re 1
+Thanks for the info!
+.
+:q
+

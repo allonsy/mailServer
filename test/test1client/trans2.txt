@@ -1,0 +1,31 @@
+>>> :upd
+>>> :disp
+>>> :show 1
+>>> :q
+Authentication OK
+What would you like to do?
+Enter ":?" for a list of commands
+importing 1 email(s)
+What would you like to do?
+Enter ":?" for a list of commands
+Hey There!
+	-***[1] 2015-06-09 07:16:32.326238 UTC from: "test2" subj: "Hey There!"***
+
+What would you like to do?
+Enter ":?" for a list of commands
+
+From: test2 at test2@localhost
+To: test1@localhost
+CC: []
+BCC: []
+Subj: Hey There!
+Begin Message: 
+BEGIN REPLY:
+Thanks for the info!
+END REPLY
+This is a test
+
+End Message
+
+What would you like to do?
+Enter ":?" for a list of commands
