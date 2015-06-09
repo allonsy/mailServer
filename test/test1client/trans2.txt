@@ -9,7 +9,7 @@ importing 1 email(s)
 What would you like to do?
 Enter ":?" for a list of commands
 Hey There!
-	-***[1] 2015-06-09 08:18:03.95865 UTC from: "test2" subj: "Hey There!"***
+	-***[1] 2015-06-09 08:29:16.614904 UTC from: "test2" subj: "Hey There!"***
 
 What would you like to do?
 Enter ":?" for a list of commands
