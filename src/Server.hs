@@ -78,14 +78,20 @@ interMenu db = do
     putStrLn "enter 2 to delete a user"
     putStrLn "enter 3 to modify a user"
     putStrLn "enter 4 to quit"
-    sel <- getLine
-    let choice = read sel
-    case choice of
-        1 -> addUser db
-        2 -> delUser db
-        3 -> modUser db
-        4 -> writeDB db
-        _ -> putStrLn "Choice not recognized" >> interMenu db
+    endInput <- isEOF
+    if(endInput)
+        then loopForever
+        else do
+            sel <- getLine
+            let choice = read sel
+            case choice of
+                1 -> addUser db
+                2 -> delUser db
+                3 -> modUser db
+                4 -> writeDB db
+                _ -> putStrLn "Choice not recognized" >> interMenu db
+    where
+        loopForever = loopForever
 
 --add a user
 addUser :: MVar ServerDB -> IO ()

@@ -11,7 +11,7 @@ cd ../test4client
 cp init.db client.db
 
 cd ../servertest
-../../dist/build/Server/Server < /dev/zero >/dev/null 2> /dev/null &
+../../dist/build/Server/Server >/dev/null 2> /dev/null &
 ServerPID=$!
 echo "server started"
 sleep 2
