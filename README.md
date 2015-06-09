@@ -43,7 +43,9 @@
 * to run the tests, run:
   * `cd test`
   * `chmod +x runTests.txt`
-  * `./runTests.txt`
+  * `chmod +x runTestServer.txt`
+  * `./runTestServer.txt`
+  * then, in a separate terminal, run: `./runTests.txt`
   * `cd ..`
   * `cabal test`
 

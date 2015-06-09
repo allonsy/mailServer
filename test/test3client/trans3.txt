@@ -1,0 +1,31 @@
+>>> :upd
+>>> :disp
+>>> :show 2
+>>> :q
+Authentication OK
+What would you like to do?
+Enter ":?" for a list of commands
+imported key for test1@localhost
+importing 2 email(s)
+What would you like to do?
+Enter ":?" for a list of commands
+Hey There Again!
+	-***[1] 2015-06-09 08:18:04.061548 UTC from: "test1" subj: "Hey There Again!"***
+Hey there again again!
+	-***[2] 2015-06-09 08:18:04.354832 UTC from: "test1" subj: "Hey there again again!"***
+
+What would you like to do?
+Enter ":?" for a list of commands
+
+From: test1 at test1@localhost
+To: test2@localhost
+CC: []
+BCC: ["test3@localhost"]
+Subj: Hey there again again!
+Begin Message: 
+This is a bcc test
+
+End Message
+
+What would you like to do?
+Enter ":?" for a list of commands

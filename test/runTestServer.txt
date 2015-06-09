@@ -1,0 +1,7 @@
+#!/bin/bash
+cd servertest
+cp init.db server.db
+
+cd ../servertest
+echo "starting server, you may now run 'runTests.txt'"
+../../dist/build/Server/Server 2> /dev/null

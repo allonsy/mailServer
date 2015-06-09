@@ -80,7 +80,7 @@ interMenu db = do
     putStrLn "enter 4 to quit"
     endInput <- isEOF
     if(endInput)
-        then loopForever
+        then writeDB db
         else do
             sel <- getLine
             let choice = read sel
@@ -90,8 +90,6 @@ interMenu db = do
                 3 -> modUser db
                 4 -> writeDB db
                 _ -> putStrLn "Choice not recognized" >> interMenu db
-    where
-        loopForever = loopForever
 
 --add a user
 addUser :: MVar ServerDB -> IO ()

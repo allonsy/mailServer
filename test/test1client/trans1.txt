@@ -1,0 +1,49 @@
+>>> :import
+What is the email of the user: test2@localhost
+What is the filename of the user's public key: ../test2client/test2.pub
+>>> :send
+To: test2@localhost
+CC: 
+BCC: 
+Subj: Hey There!
+This is a test
+.
+>>> :send
+To: test2@localhost
+CC: test3@localhost
+BCC: 
+Subj: Hey There Again!
+this is another test for cc
+.
+>>> :send
+To: test2@localhost
+CC: 
+BCC: test3@localhost
+Subj: Hey there again again!
+This is a bcc test
+.
+>>> :q
+Authentication OK
+What would you like to do?
+Enter ":?" for a list of commands
+Key imported for user: test2@localhost
+What would you like to do?
+Enter ":?" for a list of commands
+Composing email
+Please write the contents of the message (end with a period on a line by itself
+Message sent!
+What would you like to do?
+Enter ":?" for a list of commands
+Composing email
+Please write the contents of the message (end with a period on a line by itself
+Message sent!
+imported key for test3@localhost
+Message sent!
+What would you like to do?
+Enter ":?" for a list of commands
+Composing email
+Please write the contents of the message (end with a period on a line by itself
+Message sent!
+Message sent!
+What would you like to do?
+Enter ":?" for a list of commands

@@ -1,1 +1,0 @@
-Client: <socket: 3>: hGetLine: resource vanished (Connection reset by peer)

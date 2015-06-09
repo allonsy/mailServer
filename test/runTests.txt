@@ -1,7 +1,5 @@
 #!/bin/bash
-cd servertest
-cp init.db server.db
-cd ../test1client
+cd test1client
 cp init.db client.db
 cd ../test2client
 cp init.db client.db
@@ -10,14 +8,11 @@ cp init.db client.db
 cd ../test4client
 cp init.db client.db
 
-cd ../servertest
-../../dist/build/Server/Server >/dev/null 2> /dev/null &
-ServerPID=$!
-echo "server started"
 sleep 2
 
 cd ../test1client
 ../../dist/build/Client/Client < comm1.txt 1> trans1.txt 2> trans1err.txt
+*
 echo "client 1 started"
 
 sleep 1
@@ -40,7 +35,4 @@ cd ../test1client
 ../../dist/build/Client/Client < comm2.txt 1> trans2.txt 2> trans2err.txt
 echo "client 1 extra reply test"
 
-sleep 1
-
-kill -9 $ServerPID
 echo "initial tests done, to see the results of the test, run 'cabal test'"

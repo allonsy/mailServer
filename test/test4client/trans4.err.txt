@@ -1,1 +1,1 @@
-Client: connect: does not exist (Connection refused)
+Client: Authentication failure
