@@ -18,9 +18,13 @@
 * to run the tests, run:
   * `cd test`
   * `chmod +x runTests.txt`
-  * `./runTests.txt`
+  * `chmod +x runTestServer.txt`
+  * `./runTestServer.txt`
+  * then, in a separate terminal, run: `./runTests.txt`
   * `cd ..`
   * `cabal test`
+  * Why are the tests set up this way? Bash closes the stdin file descriptors (and no redirection happens) when things like servers are sent to the background. This causes the server to think that no more input is being received from the user and it shuts down
+  * to avoid this, simply run the test server script in one terminal and the other test script in another
   * If something goes wrong with the script, check any of the .err files in test/testNserver where N is any number from 1 to 4
 
 
