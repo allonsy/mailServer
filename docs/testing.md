@@ -21,6 +21,7 @@
   * `./runTests.txt`
   * `cd ..`
   * `cabal test`
+  * If something goes wrong with the script, check any of the .err files in test/testNserver where N is any number from 1 to 4
 
 
 #What's going on behind the scenes?

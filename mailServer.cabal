@@ -12,7 +12,31 @@ cabal-version:  >= 1.10
 category:       System
 
 extra-source-files:
-  README.md,.gitignore
+  README.md
+  ,.gitignore
+  ,docs/*.md
+  ,test/*.txt
+  ,test/*.priv
+  ,test/*.pub
+  ,test/servertest/init.db
+  ,test/servertest/*.priv
+  ,test/servertest/*.pub
+  ,test/test1client/init.db
+  ,test/test1client/*.priv
+  ,test/test1client/*.pub
+  ,test/test1client/*.txt
+  ,test/test2client/init.db
+  ,test/test2client/*.priv
+  ,test/test2client/*.pub
+  ,test/test2client/*.txt
+  ,test/test3client/init.db
+  ,test/test3client/*.priv
+  ,test/test3client/*.pub
+  ,test/test3client/*.txt
+  ,test/test4client/init.db
+  ,test/test4client/*.priv
+  ,test/test4client/*.pub
+  ,test/test4client/*.txt
 
 library
   hs-source-dirs: src
@@ -26,7 +50,7 @@ library
     ,cryptohash
     ,time
   default-language: Haskell2010
-  ghc-options: -Wall
+  ghc-options:
 
 executable Server
   hs-source-dirs: src
@@ -44,7 +68,7 @@ executable Server
    ,cipher-aes
    ,cryptohash
   default-language: Haskell2010
-  ghc-options: -Wall
+  ghc-options:
 
 executable Client
   hs-source-dirs: src
@@ -62,7 +86,7 @@ executable Client
    ,cryptohash
    ,cipher-aes
   default-language: Haskell2010
-  ghc-options: -Wall
+  ghc-options:
 
 executable KeyGen
   hs-source-dirs: src
@@ -76,7 +100,7 @@ executable KeyGen
    ,bytestring
    ,time
   default-language: Haskell2010
-  ghc-options: -Wall
+  ghc-options:
 
 test-suite test-chat
   hs-source-dirs: test
@@ -91,4 +115,4 @@ test-suite test-chat
    ,containers
    ,bytestring
   default-language: Haskell2010
-  ghc-options: -Wall
+  ghc-options:
