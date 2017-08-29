@@ -3,7 +3,7 @@
 * github link: github link: https://github.com/allonsy/mailServer
 * email: alsnyder@uchicago.edu or linuxbash8@gmail.com
 
-##Build instructions:
+## Build instructions:
 * Clone the repository or untar the cabal sdist tar.gz file
 * dependencies for the EncryptMail Library:
   * bytestring
@@ -32,7 +32,7 @@
   * `cabal build`
 
 
-##Executing instructions
+## Executing instructions
 * To run the KeyGen executable, run: `dist/build/KeyGen/KeyGen`
 * To run the Server executable, run: `dist/build/Server/Server`
   * You may given it an optional argument of what port to run on
@@ -49,4 +49,4 @@
   * `cd ..`
   * `cabal test`
 
-##For More information, in the doc directory, each executable has an assocated Readme which outlines more specifically what to run
+## For More information, in the doc directory, each executable has an assocated Readme which outlines more specifically what to run
